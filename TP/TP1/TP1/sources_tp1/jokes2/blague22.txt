@@ -1,0 +1,4 @@
+Une addresse IPv4 entre dans un bar, le barman lui dit :
+Hey ! Est ce que ça va ?
+Et l'addresse IPv4 lui répond :
+Non ! Je suis épuisé !

@@ -1,0 +1,5 @@
+Une requête TCP entre dans un bar et demande une bière, le barman lui répond :
+Tu veux une bière ?
+Et la requête TCP lui répond :
+Oui, je veux une bière
+Et la requête a reçu une bière.
