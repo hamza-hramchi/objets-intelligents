@@ -224,10 +224,12 @@ void* Sent_Eco(void *i) {
 	sock_send(clt_sock, SEND_ECO_CONFIG);
 
 	/* envoi du message au le serveur */
-	sock_send(clt_sock, dataConfig.at(0).c_str());
+	sock_send(clt_sock, dataConfig.at(1).c_str());
 		
-	sock_send(clt_sock, SEEK_ECO_CONFIG_ACK);
-	
+	// sock_send(clt_sock, SEEK_ECO_CONFIG_ACK);
+	std::vector<std::string>::iterator it = std::find(nodesSeekingEco.begin(), nodesSeekingEco.end(), ip_serveur);
+			if (it != nodesSeekingEco.end())
+				nodesSeekingEco.erase(it);
 
 	/* fermeture de la socket */
 	close_connection(clt_sock);
@@ -246,9 +248,12 @@ void* Sent_Min(void *i) {
 	sock_send(clt_sock, SEND_MIN_CONFIG);
 
 	/* envoi du message au le serveur */
-	sock_send(clt_sock, dataConfig.at(1).c_str());
+	sock_send(clt_sock, dataConfig.at(0).c_str());
 
-	sock_send(clt_sock, SEEK_ECO_CONFIG_ACK);
+	// sock_send(clt_sock, SEEK_ECO_CONFIG_ACK);
+	std::vector<std::string>::iterator it = std::find(nodesSeekingMin.begin(), nodesSeekingMin.end(), ip_serveur);
+			if (it != nodesSeekingMin.end())
+				nodesSeekingEco.erase(it);
 
 	/* fermeture de la socket */
 	close_connection(clt_sock);

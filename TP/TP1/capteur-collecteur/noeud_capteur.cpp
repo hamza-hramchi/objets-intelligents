@@ -111,25 +111,19 @@ void* serverFunc(void *s) {
 	if(message_is(buf, SEND_ECO_CONFIG)){
 			
 			/* Lecture du message du client */
-	while(true) {
-		sock_receive(socket, buf, BUFFERMAX);
-
-		if (message_is(buf, SEEK_ECO_CONFIG_ACK)) { 
-		 break; }
-		 else{
-		 	receivedConfigMutex.lock();
-		 	std::string newConfig(buf);
+			sock_receive(socket, buf, BUFFERMAX);
+			receivedConfigMutex.lock();
+			std::string newConfig(buf);
 			FILE* datafile;
 			std::string filename(dataConfig + "/" + newConfig);
 			datafile = fopen(filename.c_str(), "w");
 			fclose(datafile);
 			receivedConfig.push_back(newConfig);
 			receivedConfigMutex.unlock();
-		 
-		 battery_level -= 30;
-		std::cout <<"[CLIENT_CAPTEUR]file reception -30 : "<< battery_level <<std::endl;
-		 
-		}}}
+	
+			battery_level -= 30;
+			std::cout <<"[CLIENT_CAPTEUR]file reception -30 : "<< battery_level <<std::endl;
+	}
 		
 		
 
@@ -137,25 +131,22 @@ void* serverFunc(void *s) {
 	if(message_is(buf, SEND_MIN_CONFIG)){
 			
 			/* Lecture du message du client */
-	while(true) {
 		sock_receive(socket, buf, BUFFERMAX);
-
-		if (message_is(buf, SEEK_MIN_CONFIG_ACK)) { 
-		 break; }
-		 else{
-		 	receivedConfigMutex.lock();
-		 	std::string newConfig(buf);
-			FILE* datafile;
-			std::string filename(dataConfig + "/" + newConfig);
-			datafile = fopen(filename.c_str(), "w");
-			fclose(datafile);
-			receivedConfig.push_back(newConfig);
-			receivedConfigMutex.unlock();
+		receivedConfigMutex.lock();
+		std::string newConfig(buf);
+		FILE* datafile;
+		std::string filename(dataConfig + "/" + newConfig);
+		datafile = fopen(filename.c_str(), "w");
+		fclose(datafile);
+		receivedConfig.push_back(newConfig);
+		receivedConfigMutex.unlock();
 		 
-		 battery_level -= 30;
+		battery_level -= 30;
 		std::cout <<"[CLIENT_CAPTEUR]file reception -30 : "<< battery_level <<std::endl;
 		 
-		}}}
+	
+		
+	}
 
 	// Closing connection
 	close_connection(socket);
@@ -241,9 +232,8 @@ void* seek_eco_config(void *i) {
 	std::string message = SEEK_ECO_CONFIG + delimiter + ip_addr_df;
 	/* envoi du message au le serveur */
 	sock_send(clt_sock, message.c_str());
-	battery_level -= 10;
 	
-	std::cout <<"notification seek_eco_config (-10) : "<< battery_level <<std::endl;
+	// std::cout <<"notification seek_eco_config (-10) : "<< battery_level <<std::endl;
 	
 	//Lecture du message du Server(reponse): 
 	while(true) {
@@ -275,8 +265,8 @@ void* seek_min_config(void *i) {
 	std::string message = SEEK_MIN_CONFIG + delimiter + ip_addr_df;
 	/* envoi du message au le serveur */
 	sock_send(clt_sock, message.c_str());
-	battery_level -= 10;
-	std::cout <<"notification Min_Config (-10) : "<< battery_level <<std::endl;
+	// battery_level -= 10;
+	// std::cout <<"notification Min_Config (-10) : "<< battery_level <<std::endl;
 	
 	//Lecture du message du Server(reponse): 
 	while(true) {
@@ -338,11 +328,11 @@ void* clientFunc(void *n) {
 		
 		
 		
-		std::cout << "[CLIENT_Sensor] List of current data in dataList(capteur1) " << std::endl;	
+		std::cout << "[CLIENT_Sensor] List of current data in dataList(capteur-test) " << std::endl;	
 		for (std::string dataname : dataList) {
 		std::cout << "[CLIENT_Sensor] " << dataname << std::endl;	
 		}
-		std::cout << "[CLIENT_Sensor] List of current data in dataListPerdu(capteur1) " << std::endl;	
+		std::cout << "[CLIENT_Sensor] List of current data in dataListPerdu(capteur-test) " << std::endl;	
 		for (std::string dataname : dataList) {
 		std::cout << "[CLIENT_Sensor] " << dataname << std::endl;	
 		}
