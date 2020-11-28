@@ -17,7 +17,7 @@
 #include <vector>
 #include <unistd.h>
 
-#include "net_aux.h"
+#include "lib/net_aux.h"
 
 #define BUFFERMAX 100
 #define CHECK_INTERVAL 3000000

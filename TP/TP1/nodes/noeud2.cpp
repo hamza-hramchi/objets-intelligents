@@ -4,6 +4,7 @@
 
 #define DEBUG
 
+// Librairies
 #include <algorithm>
 #include <cstring>
 #include <dirent.h> 
@@ -15,9 +16,9 @@
 #include <string>
 #include <vector>
 #include <unistd.h>
-
 #include "lib/net_aux.h"
 
+// Global data
 #define BUFFERMAX 100
 #define BIND_ADDR "127.0.1.1"
 #define CHECK_INTERVAL 5000000
@@ -28,8 +29,9 @@
 #define EVT_GET_JOKESTITLES "getJokesTitles"
 #define EVT_GET_JOKESTITLES_END "getJokesTitlesEnd"
 
-int srv_sock;
 int port = 8000; // Port par defaut
+int srv_sock;
+
 std::vector<std::string> nodeList;
 std::vector<std::string> jokes;
 std::string jokeDirectory = "jokes/";
