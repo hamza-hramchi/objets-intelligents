@@ -16,7 +16,7 @@
 #include <vector>
 #include <unistd.h>
 
-#include "net_aux.h"
+#include "lib/net_aux.h"
 
 #define BUFFERMAX 100
 #define BIND_ADDR "127.0.1.1"

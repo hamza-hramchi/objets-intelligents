@@ -16,7 +16,7 @@
 #include <vector>
 #include <unistd.h>
 
-#include "net_aux.h"
+#include "lib/net_aux.h"
 
 #define BUFFERMAX 100
 #define BIND_ADDR "127.0.0.1"
@@ -35,6 +35,11 @@ std::vector<std::string> jokes;
 std::string jokeDirectory = "jokes/";
 
 std::mutex nodeListMutex, jokeListMutex;
+
+typedef struct{
+	int sock;
+	char ip_addr[15];
+} server_params;
 
 /* A server instance answering client commands */
 void* serverFunc(void *s) {
@@ -78,11 +83,22 @@ void* listenServer(void *n) {
 	start_server(srv_sock, BIND_ADDR, port);
 
 	while(1){
+			
+		//server_params* params;
+		server_params* params = (server_params*)malloc(sizeof(server_params));
+		char buf[BUFFERMAX];
+		
 		/* Attendre les requêtes de connexion */
-		int sock_effective = wait_connection(srv_sock);
+		
+		
+		int sock_effective = wait_connection_adr(srv_sock, buf);
+		
+		//memset(params,0,sizeof(server_params));
+		params->sock = sock_effective;
+		strncpy(params->ip_addr, buf, strlen(buf));
 
 		pthread_t thrd;
-		if (pthread_create(&thrd, NULL, serverFunc, (void *)sock_effective) != 0) {
+		if (pthread_create(&thrd, NULL, serverFunc, (void *) params) != 0) {
 			std::cerr << "[SERVER] Error while creating a new thread" << std::endl;
 			pthread_exit(NULL);
 		}
