@@ -56,7 +56,7 @@ std::vector<std::string> dataLost;//pour les données non stocker
 
 std::vector<std::string> receivedConfig;
 std::vector<std::string> nodeswithdata;
-std::string dataDirectory = "DataCapteur1/";
+std::string dataDirectory = "DataCapteur/";
 int numeroData = 1;
 int low_battery_status = 0 ;
 int max_data_size = 10;
