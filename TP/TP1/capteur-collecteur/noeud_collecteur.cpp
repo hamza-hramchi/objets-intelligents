@@ -50,6 +50,7 @@ int srv_sock;
 std::string ip_addr_df("127.0.0.1"); //adresse par defaut
 int port = 8000; // Port par defaut
 int sensor_port = 8002;
+std::vector<int> nodeListReceived;
 std::vector<std::string> nodeList;
 std::vector<std::string> dataList;
 std::vector<std::string> dataConfig;
@@ -59,6 +60,7 @@ std::vector<std::string> nodesSeekingMin;
 std::vector<std::string> nodesSeekingFull;
 
 std::string dataDirectory = "database";
+std::string dataConfigDirectory = "dataConfig";
 
 std::mutex nodeListMutex, dataListMutex, nodeswithdataMutex, nodesSeekingEcoMutex, nodesSeekingMinMutex, nodesSeekingFullMutex;
 
@@ -96,6 +98,7 @@ void* serverFunc(void *s) {
 		if (std::find(nodeList.begin(), nodeList.end(), ip_sensor) == nodeList.end()) {
 			std::cout << "[Sink CLIENT] New sensor node: " << ip_sensor.c_str() << std::endl;
 			nodeList.push_back(ip_sensor);
+			nodeListReceived.push_back(0);
 		} else {//En fonctionnement normal, enlever l'affichage ci-dessous
 			std::cout << "[Sink CLIENT] Node already stored: " << ip_sensor.c_str() << std::endl;
 		}
@@ -131,7 +134,7 @@ void* serverFunc(void *s) {
 	
 		// Answering command Seek Min_config
 		         
-		if (message_is(buf, SEEK_MIN_CONFIG)) {
+	if (message_is(buf, SEEK_MIN_CONFIG)) {
 	
 		
 		nodesSeekingMinMutex.lock();
@@ -211,8 +214,10 @@ void* listenServer(void *n) {
 }
 
 
-void* Sent_Eco(void *i) {
+void* Sent_Config_ECO(void *i) {
 	char* ip_serveur = *((char**)(&i));
+	std::string ip_serveur_str(ip_serveur);
+
 	char buf[BUFFERMAX];  /* buffer pour les données reçues*/
 
 	/* Création de la socket de communication */
@@ -223,11 +228,11 @@ void* Sent_Eco(void *i) {
 	
 	sock_send(clt_sock, SEND_ECO_CONFIG);
 
-	/* envoi du message au le serveur */
-	sock_send(clt_sock, dataConfig.at(1).c_str());
+	/* envoi du message au serveur */
+	sock_send(clt_sock, dataConfig.at(2).c_str());
 		
-	// sock_send(clt_sock, SEEK_ECO_CONFIG_ACK);
-	std::vector<std::string>::iterator it = std::find(nodesSeekingEco.begin(), nodesSeekingEco.end(), ip_serveur);
+	//Delete demande from nodesseekingeco
+	std::vector<std::string>::iterator it = std::find(nodesSeekingEco.begin(), nodesSeekingEco.end(), ip_serveur_str);
 			if (it != nodesSeekingEco.end())
 				nodesSeekingEco.erase(it);
 
@@ -235,8 +240,9 @@ void* Sent_Eco(void *i) {
 	close_connection(clt_sock);
 }
 
-void* Sent_Min(void *i) {
+void* Sent_Config_Min(void *i) {
 	char* ip_serveur = *((char**)(&i));
+	std::string ip_serveur_str(ip_serveur);
 	char buf[BUFFERMAX];  /* buffer pour les données reçues*/
 
 	/* Création de la socket de communication */
@@ -248,13 +254,12 @@ void* Sent_Min(void *i) {
 	sock_send(clt_sock, SEND_MIN_CONFIG);
 
 	/* envoi du message au le serveur */
-	sock_send(clt_sock, dataConfig.at(0).c_str());
+	sock_send(clt_sock, dataConfig.at(1).c_str());
 
-	// sock_send(clt_sock, SEEK_ECO_CONFIG_ACK);
-	std::vector<std::string>::iterator it = std::find(nodesSeekingMin.begin(), nodesSeekingMin.end(), ip_serveur);
+	//Delete demande from nodesseekingmin
+	std::vector<std::string>::iterator it = std::find(nodesSeekingMin.begin(), nodesSeekingMin.end(), ip_serveur_str);
 			if (it != nodesSeekingMin.end())
-				nodesSeekingEco.erase(it);
-
+				nodesSeekingMin.erase(it);
 	/* fermeture de la socket */
 	close_connection(clt_sock);
 }
@@ -331,8 +336,17 @@ void* updateDataList(void *i) {
 			datafile = fopen(filename.c_str(), "w");
 			fclose(datafile);
 			dataList.push_back(newdataWithIP);
+			//increment datarecived from this noeud 
+			std::vector<std::string>::iterator it = std::find(nodeList.begin(), nodeList.end(), ip_serveur_str);
+			if (it != nodeList.end()){
+				int index =  it - nodeList.begin();
+				nodeListReceived[index]++;
+				std::cout << "[Sink CLIENT] Number of data recived from : " << ip_serveur_str << "is :" << nodeListReceived[index] << std::endl;
+			}
+				
 		} else {
 			std::cout << "[Sink CLIENT] Data already stored: " << newdataWithIP << std::endl;
+		
 		}
 		}
 	}
@@ -375,7 +389,7 @@ void* clientFunc(void *n) {
 			   std::cout << "[Sink CLIENT] Seeking Eco_Config file from " << ip << std::endl;
 
 				pthread_t traitement;
-				if(pthread_create(&traitement, NULL, Sent_Eco, (void *)ip.c_str()) != 0) {
+				if(pthread_create(&traitement, NULL, Sent_Config_ECO, (void *)ip.c_str()) != 0) {
 					std::cerr << "[Sink CLIENT] Error while creating a new thread: client sensor data update" << std::endl;
 					pthread_exit(NULL);
 				}
@@ -389,7 +403,7 @@ void* clientFunc(void *n) {
 			   std::cout << "[Sink CLIENT] Seeking Min_Config file from " << ip << std::endl;
 
 				pthread_t traitement;
-				if(pthread_create(&traitement, NULL, Sent_Min, (void *)ip.c_str()) != 0) {
+				if(pthread_create(&traitement, NULL, Sent_Config_Min, (void *)ip.c_str()) != 0) {
 					std::cerr << "[Sink CLIENT] Error while creating a new thread: client sensor data update" << std::endl;
 					pthread_exit(NULL);
 				}
@@ -446,7 +460,7 @@ int main(int argc, char* argv[]) {
 	// data
 	std::cout << "Adding data Config to list" << std::endl;
 
-	DIR           *dir = opendir(dataDirectory.c_str());
+	DIR           *dir = opendir(dataConfigDirectory.c_str());
 	struct dirent *pdir;
 	while ((pdir = readdir(dir))) {
 		if(std::strlen(pdir->d_name) < 5) { continue; }

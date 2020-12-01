@@ -52,21 +52,24 @@ int port = 8002; // Port par defaut
 int sink_port = 8000;
 std::vector<std::string> nodeList;
 std::vector<std::string> dataList;
-std::vector<std::string> dataLost;
+std::vector<std::string> dataLost;//pour les données non stocker
 
 std::vector<std::string> receivedConfig;
 std::vector<std::string> nodeswithdata;
-std::string dataDirectory = "database/";
-std::string dataConfig = "dataConfig/";
+std::string dataDirectory = "DataCapteur1/";
 int numeroData = 1;
-int max_data_size = 30;
+int low_battery_status = 0 ;
+int max_data_size = 10;
 int stop = 0;
-int couter_file_lost = 0;
-int couter_file_lost_all = 0;
-int counter_file_trans = 0;
+int file_lost = 0;
+int file_sent = 0;
+int file_generated = 0;
 int battery_level = 1000;
 bool test_battery_600 = false;
 bool test_battery_300 = false;
+bool test_battery_50 = false;
+double average_lost = 0 ;
+double average_lost_binding = 0;
 
 
 std::mutex nodeListMutex, dataListMutex, nodeswithdataMutex, dataLostMutex, receivedConfigMutex;
@@ -93,37 +96,54 @@ void* serverFunc(void *s) {
 	if (message_is(buf, EVT_GET_DATA)) {
 		dataListMutex.lock();
 		for (std::string str : dataList) {
-		battery_level -= 20;
-		counter_file_trans ++;
-		sock_send(socket, str.c_str());
-		std::cout <<"transmission data -20  : "<< battery_level <<std::endl;
+			if(battery_level >= 20){
+				battery_level -= 20;
+				file_sent ++;
+				sock_send(socket, str.c_str());
+				std::cout <<"transmission data -20  : "<< battery_level <<std::endl;
+				std::cout <<"Number of files transmited  : "<< file_sent <<std::endl;
+			}
+			else{
+				low_battery_status = 1;
+			}
 		}
-		sock_send(socket, EVT_GET_DATA_END);
+		
 		
 		//EFFACER LES DONNEES EXISTANTES
-		dataList.clear();
-		stop = 0;
-		couter_file_lost = 0;
-		
-		dataListMutex.unlock();
+		if(low_battery_status == 0){
+			sock_send(socket, EVT_GET_DATA_END); // notify the end of sent for client
+			for (std::string dataname : dataList) {
+			std::string filename;
+			filename = dataDirectory + "/" + dataname;
+			remove(filename.c_str());
+			}	
+			dataList.clear();
+			stop = 0;
+			dataListMutex.unlock();
+		}
 	}
 	
 	if(message_is(buf, SEND_ECO_CONFIG)){
-			
-			/* Lecture du message du client */
+		
+		if(battery_level >= 30){
+	
+			battery_level -= 30;
+			std::cout <<"[CLIENT_CAPTEUR]file reception -30 : "<< battery_level <<std::endl;
 			sock_receive(socket, buf, BUFFERMAX);
-			receivedConfigMutex.lock();
-			std::string newConfig(buf);
+		 	receivedConfigMutex.lock();
+		 	std::string newConfig(buf);
 			FILE* datafile;
-			std::string filename(dataConfig + "/" + newConfig);
+			std::string filename(dataDirectory + "/" + newConfig);
 			datafile = fopen(filename.c_str(), "w");
 			fclose(datafile);
 			receivedConfig.push_back(newConfig);
 			receivedConfigMutex.unlock();
-	
-			battery_level -= 30;
-			std::cout <<"[CLIENT_CAPTEUR]file reception -30 : "<< battery_level <<std::endl;
-	}
+	 	}
+		else{
+			low_battery_status = 1;
+		}
+		 
+		}
 		
 		
 
@@ -131,22 +151,23 @@ void* serverFunc(void *s) {
 	if(message_is(buf, SEND_MIN_CONFIG)){
 			
 			/* Lecture du message du client */
-		sock_receive(socket, buf, BUFFERMAX);
-		receivedConfigMutex.lock();
-		std::string newConfig(buf);
-		FILE* datafile;
-		std::string filename(dataConfig + "/" + newConfig);
-		datafile = fopen(filename.c_str(), "w");
-		fclose(datafile);
-		receivedConfig.push_back(newConfig);
-		receivedConfigMutex.unlock();
-		 
-		battery_level -= 30;
-		std::cout <<"[CLIENT_CAPTEUR]file reception -30 : "<< battery_level <<std::endl;
-		 
-	
-		
-	}
+		if(battery_level >= 30){
+			battery_level -= 30;
+			std::cout <<"[CLIENT_CAPTEUR]file reception -30 : "<< battery_level <<std::endl;
+			sock_receive(socket, buf, BUFFERMAX);
+		 	receivedConfigMutex.lock();
+		 	std::string newConfig(buf);
+			FILE* datafile;
+			std::string filename(dataDirectory + "/" + newConfig);
+			datafile = fopen(filename.c_str(), "w");
+			fclose(datafile);
+			receivedConfig.push_back(newConfig);
+			receivedConfigMutex.unlock();
+		}
+		 else{
+			low_battery_status = 1;
+		}
+		}
 
 	// Closing connection
 	close_connection(socket);
@@ -233,7 +254,6 @@ void* seek_eco_config(void *i) {
 	/* envoi du message au le serveur */
 	sock_send(clt_sock, message.c_str());
 	
-	// std::cout <<"notification seek_eco_config (-10) : "<< battery_level <<std::endl;
 	
 	//Lecture du message du Server(reponse): 
 	while(true) {
@@ -265,8 +285,6 @@ void* seek_min_config(void *i) {
 	std::string message = SEEK_MIN_CONFIG + delimiter + ip_addr_df;
 	/* envoi du message au le serveur */
 	sock_send(clt_sock, message.c_str());
-	// battery_level -= 10;
-	// std::cout <<"notification Min_Config (-10) : "<< battery_level <<std::endl;
 	
 	//Lecture du message du Server(reponse): 
 	while(true) {
@@ -292,57 +310,64 @@ void* clientFunc(void *n) {
 		std::string num = std::to_string(numeroData);
 		std::string filename;
 		if(stop == 0){
-		battery_level -= 50;
-		std::cout <<"file creation -50 : "<< battery_level <<std::endl;
-		filename = dataDirectory + "/" + ip_addr_df + "_data_" + num;
-	    	datafile = fopen(filename.c_str(), "w");
-		fclose(datafile);
+			
+			if(battery_level >= 50){
+				dataListMutex.lock();
+				battery_level -= 50;
+				std::cout <<"file creation -50 : "<< battery_level <<std::endl;
+				filename = dataDirectory + "/" + ip_addr_df + "_data_" + num;
+			    	datafile = fopen(filename.c_str(), "w");
+				fclose(datafile);
+				std::cout << "[CLIENT] Adding data to dataList" << filename.c_str() << std::endl;
+				dataList.push_back(ip_addr_df + "_data_" + num);
+				file_generated++;
+				std::cout << "[CLIENT] number of data generated " << file_generated << std::endl;
+				numeroData++;
+				dataListMutex.unlock();
+			}
+			else{
+				low_battery_status = 1;
+				
+			}
 		
-		//nodeswithdataMutex.lock();
-		dataListMutex.lock();
-		std::cout << "[CLIENT] Adding data to dataList" << filename.c_str() << std::endl;
-		dataList.push_back(ip_addr_df + "_data_" + num);
-		
-		numeroData++;
-		
-		dataListMutex.unlock();
 		}
-		else if(stop == 1){
-		battery_level -= 50;
-		std::cout <<"[CLIENT] file creation data perdu -50  : "<< battery_level <<std::endl;
+		else if(stop == 1 && low_battery_status == 0){
 		
-		couter_file_lost ++;
-		couter_file_lost_all ++;
-		filename = dataDirectory + "/" + ip_addr_df + "_data_" + num + "_lost";
-	    	datafile = fopen(filename.c_str(), "w");
-		fclose(datafile);
+		filename = dataDirectory + "/" + ip_addr_df + "_data_Lost" + num ;
 		//nodeswithdataMutex.lock();
 		dataLostMutex.lock();
-		std::cout << "[CLIENT] Adding data perdu " << filename.c_str() << "to dataLost"<< std::endl;
-		dataLost.push_back(ip_addr_df + "_data_" + num);
-		
+		std::cout << "[CLIENT] Adding data perdu " << filename.c_str() << "to list of dataLost"<< std::endl;
+		dataLost.push_back(ip_addr_df + "_data_Lost" + num);
+		file_lost++;
+		file_generated++;
+		std::cout << "[CLIENT] number of data losted " << file_lost << std::endl;
+				numeroData++;
 		numeroData++;
 		
 		dataLostMutex.unlock();
 		}
 		
+
 		
-		
-		std::cout << "[CLIENT_Sensor] List of current data in dataList(capteur-test) " << std::endl;	
+		std::cout << "[CLIENT_Sensor] List of current data in dataList(capteur1) " << std::endl;	
 		for (std::string dataname : dataList) {
 		std::cout << "[CLIENT_Sensor] " << dataname << std::endl;	
 		}
-		std::cout << "[CLIENT_Sensor] List of current data in dataListPerdu(capteur-test) " << std::endl;	
-		for (std::string dataname : dataList) {
+		std::cout << "[CLIENT_Sensor] List of current data in dataListPerdu(capteur1) " << std::endl;	
+		for (std::string dataname : dataLost) {
 		std::cout << "[CLIENT_Sensor] " << dataname << std::endl;	
 		}
 		
-		if(dataList.size() >=  max_data_size && stop==0)
-		{ stop = 1;
+		if(dataList.size() ==  max_data_size - 5)
+		{ 
 			pthread_t traitement;
 			if(pthread_create(&traitement, NULL, notifyDataAvailable, (void *) nodeList.at(0).c_str()) != 0) {
 			std::cerr << "[CLIENT] Error while creating a new thread: client sensor data update" << std::endl;
 			pthread_exit(NULL);
+		}
+		if(dataList.size() >= max_data_size && stop == 0){
+			std::cerr << "##################################################################################################" << std::endl;
+			stop = 1;
 		}
 		
 		}
@@ -367,6 +392,7 @@ void* clientFunc(void *n) {
 			pthread_exit(NULL);
 		}
 		
+
 		}
 		
 		
@@ -430,8 +456,8 @@ int main(int argc, char* argv[]) {
 
 
 	// threads
-	pthread_t client,
-			  listen;
+	
+	pthread_t client,listen;
 
 	if (pthread_create(&client, NULL, clientFunc, NULL) != 0) {
 		std::cerr << "[MAIN] Error while creating a new thread: client" << std::endl;
@@ -442,8 +468,41 @@ int main(int argc, char* argv[]) {
 		std::cerr << "[MAIN] Error while creating a new thread: server" << std::endl;
 		pthread_exit(NULL);
 	}
+	while(true) 
+		{ if(battery_level < 50 && test_battery_50 == false){
+				//Delete files from database of captor and add them to number of data lost
+				test_battery_50 = true;
+				dataListMutex.lock();
+				for (std::string dataname : dataList) {
+					std::string filename;
+					filename = dataDirectory + dataname;
+					std::cout << "[CLIENT] Delete file" << filename << std::endl;
+					remove(filename.c_str());
+					file_lost++;
+				}
+				dataListMutex.unlock();	
+				dataList.clear();
+						
+		}
+		
+		if(low_battery_status == 1) {
 
-	while(true) { if(battery_level <= 10) break; } // Don't stop, we need to let thread run
+			//calculate average of lost of captor-collector binding
+			average_lost_binding = ((double)(file_generated-file_sent)/file_generated) * 100;
+			//calculate average of internal lost of captor
+			average_lost =((double)file_lost/file_generated)*100;
+			std::cout << "[Capteur] Power off, Battery level incefficent for the recommended operation , Good by"  << std::endl;
+			std::cout << "[Capteur] ############################## Statistics ##############################"  << std::endl;
+			std::cout << "[Capteur] ## Number of data generated: "<< file_generated  << std::endl;
+			std::cout << "[Capteur] ## Number of data sent: "<< file_sent  << std::endl;
+			std::cout << "[Capteur] ## Number of data lost: "<< file_lost << std::endl;
+	
+			std::cout << "[Capteur] ## the average of data lost of captor-collector binding is : "<<  average_lost_binding << "%" << std::endl;
+			std::cout << "[Capteur] ## the internal average of data lost of captor : "<< average_lost << "%" << std::endl;
+			break; } // Don't stop, we need to let thread run
+		}
+		
+		
 
 	return EXIT_SUCCESS;
 }
