@@ -486,20 +486,21 @@ int main(int argc, char* argv[]) {
 		}
 		
 		if(low_battery_status == 1) {
+			average_lost_binding = ((double)(file_generated - file_sent) / file_generated) * 100;
+			average_lost =((double)file_lost / file_generated) * 100;
 
-			//calculate average of lost of captor-collector binding
-			average_lost_binding = ((double)(file_generated-file_sent)/file_generated) * 100;
-			//calculate average of internal lost of captor
-			average_lost =((double)file_lost/file_generated)*100;
-			std::cout << "[Capteur] Power off, Battery level incefficent for the recommended operation , Good by"  << std::endl;
-			std::cout << "[Capteur] ############################## Statistics ##############################"  << std::endl;
-			std::cout << "[Capteur] ## Number of data generated: "<< file_generated  << std::endl;
-			std::cout << "[Capteur] ## Number of data sent: "<< file_sent  << std::endl;
-			std::cout << "[Capteur] ## Number of data lost: "<< file_lost << std::endl;
-	
-			std::cout << "[Capteur] ## the average of data lost of captor-collector binding is : "<<  average_lost_binding << "%" << std::endl;
-			std::cout << "[Capteur] ## the internal average of data lost of captor : "<< average_lost << "%" << std::endl;
-			break; } // Don't stop, we need to let thread run
+			std::cout << "\n[Capteur] Low battery :(, Goodbye ! \n"  << std::endl;
+			std::cout << "--------------------------------------" << std::endl;
+			std::cout << "\n |------- Statistics -------|"  << std::endl;
+			std::cout << "--------------------------------------\n" << std::endl;
+			std::cout << "[Capteur] 1. DATA generated : "	<< file_generated  << std::endl;
+			std::cout << "[Capteur] 2. DATA sent : "		<< file_sent  << std::endl;
+			std::cout << "[Capteur] 3. DATA lost : "		<< file_lost << std::endl;
+			std::cout << "\n |------- Average && internal average of DATA lost -------| \n" << std::endl;
+			std::cout << "[Capteur] 4. Average of data lost of captor-collector binding : "	<<  average_lost_binding << "%" << std::endl;
+			std::cout << "[Capteur] 5. Internal average of data lost of captor : "			<< average_lost << "%" << std::endl;
+			break; } 
+			// We need to let thread run
 		}
 		
 		
